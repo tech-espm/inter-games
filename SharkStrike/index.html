@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pt-br">
+
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=800, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, minimal-ui, shrink-to-fit=no" />
+
+	<title>Shark Strike</title>
+
+	<style type="text/css">
+		body {
+			background: #000;
+			padding: 0;
+			margin: 0;
+			color: #fff;
+			font: normal 14px sans-serif;
+		}
+
+		/*
+			Esse estilo é para centralizar a tela do jogo no desktop,
+			sem dar um "pulo" no início! :)
+		*/
+		canvas {
+			display: block;
+			margin: 0 auto;
+		}
+	</style>
+</head>
+
+<body>
+	<div style="text-align: center;"><button type="button" id="btnIniciar" onclick="iniciarJogo()">Iniciar (apenas por causa do som no Chrome)</button></div>
+	<div id="divJogo" style="display: none;"></div>
+
+	<script type="text/javascript" src="phaser.min.js"></script>
+	<script type="text/javascript">
+		//<![CDATA[
+		"use strict";
+
+		function iniciarJogo() {
+			document.getElementById("btnIniciar").style.display = "none";
+			document.getElementById("divJogo").style.display = "";
+			game.state.start("TelaApresentacao");
+		}
+
+		Phaser.Group.prototype.getRandomNotExists = function (startIndex, endIndex) {
+			var list = this.getAll('exists', false, startIndex, endIndex);
+			return this.game.rnd.pick(list);
+		}
+		//     Phaser.GameObjectFactory.prototype.music = function (){
+		//         return this.game.music.add('Wipeout', 1, true, true);
+		//     }
+
+		//    Phaser.GameObjectFactory.prototype.musicSprite = function (key) {
+		//        return this.game.music.addSprite('Wipeout');
+		//    };
+
+		// Essa não é a forma mais "prosissional" de fazer, mas é a mais simples :)
+
+		// Vamos chamar a variável de game, para ficar igual ao sandbox!
+
+		var game = new Phaser.Game(800, 600, Phaser.AUTO, "divJogo");
+
+
+		function TelaApresentacao(game) {
+
+
+
+			var fundo, inicio, info, preto, estadoPreto, audioEntrada, infoTela, estadoInfoTela;
+
+			// A função init() não aparecia no sandbox porque eles fazem ela por nós lá! :)
+
+			this.init = function () {
+
+				game.input.maxPointers = 2;
+
+				// Deixar o jogo executando, mesmo se o browser mudar de aba?
+				game.stage.disableVisibilityChange = true;
+
+				if (game.device.desktop) {
+					// Configurações específicas para desktop
+
+					// Como criamos o CSS acima, não precisamos centralizar via código
+					game.scale.pageAlignHorizontally = false;
+				} else {
+					// Configurações específicas para celulares
+
+					game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+					// Especifica o tamanho mímino e máximo para a área do jogo (de 400x300 até 800x600)
+					game.scale.setMinMax(400, 300, 800, 600);
+					game.scale.forceLandscape = true;
+					// Como criamos o CSS acima, não precisamos centralizar via código
+					game.scale.pageAlignHorizontally = false;
+				}
+			}
+
+			this.preload = function () {
+
+				game.load.audio('Wipeout', 'Wipeout.mp3');
+
+				game.load.crossOrigin = "anonymous";
+
+				game.load.spritesheet("inicio", "inicio.png", 139, 57);
+				game.load.spritesheet("info", "info.png", 101, 57);
+				game.load.image("Tela_principal", "Tela_principal_final.png");
+				game.load.spritesheet("Tela_info", "Tela_info.png");
+				game.load.spritesheet("preto", "preto.png", 800, 600);
+			}
+
+			this.create = function () {
+				audioEntrada = game.add.audio('Wipeout', 1, true);
+				audioEntrada.addMarker('Entrada', 5, 8, 1, true);
+				audioEntrada.addMarker('Jogo', 13, 136, 1, true);
+				audioEntrada.addMarker('Final', 1, 4, 1, false);
+				audioEntrada.play('Entrada');
+
+				fundo = game.add.tileSprite(0, 0, 800, 600, "Tela_principal");
+
+				inicio = game.add.sprite(400.5, 250, "inicio");
+				inicio.anchor.set(0.5, 0);
+				inicio.inputEnabled = true;
+				inicio.events.onInputDown.add(inicio_Click, this);
+
+				info = game.add.sprite(400.5, 330, "info");
+				info.anchor.set(0.5, 0);
+				info.inputEnabled = true;
+				info.events.onInputDown.add(info_Click, this);
+
+				estadoPreto = 0;
+				preto = game.add.sprite(0, 0, "preto");
+				preto.alpha = 1.0;
+				game.add.tween(preto).to({ alpha: 0.0 }, 500, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(pretoFadeInCompleto, this);
+
+				estadoInfoTela = 0;
+
+				infoTela = game.add.sprite(0, 0, "Tela_info");
+				infoTela.visible = false;
+				infoTela.inputEnabled = true;
+				infoTela.events.onInputDown.add(infoTela_Click, this);
+			}
+
+			function pretoFadeInCompleto() {
+				estadoPreto = 1;
+				preto.visible = false;
+			}
+
+
+			this.update = function () {
+			}
+
+			function inicio_Click() {
+				if (estadoInfoTela == 0 && estadoPreto == 1) {
+					estadoPreto = 2;
+					preto.alpha = 0.0;
+					preto.visible = true;
+					game.add.tween(preto).to({ alpha: 1.0 }, 500, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(pretoFadeOutCompleto, this);
+				}
+			}
+
+			function pretoFadeOutCompleto() {
+				audioEntrada.stop();
+				game.state.start("TelaInicial");
+			}
+
+			function info_Click() {
+				if (estadoInfoTela == 0 && estadoPreto == 1) {
+					estadoInfoTela = 1;
+					infoTela.alpha = 0;
+					infoTela.visible = true;
+					game.add.tween(infoTela).to({ alpha: 1.0 }, 500, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(infoFadeInCompleto, this);
+				}
+			}
+
+			function infoFadeInCompleto() {
+				estadoInfoTela = 2;
+			}
+
+			function infoTela_Click() {
+				if (estadoInfoTela == 2) {
+					estadoInfoTela = 3;
+					game.add.tween(infoTela).to({ alpha: 0.0 }, 500, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(infoFadeOutCompleto, this);
+				}
+			}
+
+			function infoFadeOutCompleto() {
+				estadoInfoTela = 0;
+				infoTela.visible = false;
+			}
+		}
+
+		function TelaInicial(game) {
+
+			var player;
+			var sombra, crista;
+			var cursors;
+
+			var TubaCome;
+
+			var score = 0;
+			var scoreString = "";
+			var scoreText;
+
+			var stateText;
+			var liveString = "";
+			var liveText;
+
+
+			var distanceString = "";
+			var distanceText;
+
+			var invencivel;
+			var invencivelContador;
+			var invencivelTimer;
+			var lives;
+
+			var barbatanas;
+			var barbatanaTimer;
+
+			var moedinhas;
+			var moedinhaTimer;
+			var gravidadeMoedinhaTimer;
+			var gravidadeMoedinha;
+
+			var audioJogo;
+
+			var aceleracao = 700;
+			var aceleracaoVertical = 900;
+			var velocidadeMax = 700;
+			var velocidadeMaxVertical = 900;
+			var velocidadeVerticalLimite = 200;
+			var yMinimo = 270;
+			var yMaximo = 450;
+			var ceu, distancia, agua, fundo, fundo2, preto, pretoInicio, fadeOk, fade2Rodando;
+			var teclaW, teclaD;
+
+			// A função init() não aparecia no sandbox porque eles fazem ela por nós lá! :)
+			this.init = function () {
+				game.input.maxPointers = 2;
+
+				// Deixar o jogo executando, mesmo se o browser mudar de aba?
+				game.stage.disableVisibilityChange = true;
+
+				if (game.device.desktop) {
+					// Configurações específicas para desktop
+
+					// Como criamos o CSS acima, não precisamos centralizar via código
+					game.scale.pageAlignHorizontally = false;
+				} else {
+					// Configurações específicas para celulares
+
+					game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+					// Especifica o tamanho mímino e máximo para a área do jogo (de 400x300 até 800x600)
+					game.scale.setMinMax(400, 300, 800, 600);
+					game.scale.forceLandscape = true;
+					// Como criamos o CSS acima, não precisamos centralizar via código
+					game.scale.pageAlignHorizontally = false;
+				}
+
+			}
+
+			this.preload = function () {
+				game.load.crossOrigin = "anonymous";
+
+				game.load.spritesheet("player", "Surfista.png", 96, 100);
+				game.load.image("ceu", "ceu3.png");
+				game.load.image("agua", "agua4.png");
+				game.load.spritesheet("barbatana", "barbatana.png");
+				game.load.spritesheet("sombra", "sombra.png");
+				game.load.spritesheet("crista", "crista2.png", 200, 239);
+
+				game.load.spritesheet("moedinha", "moedas_ouro.png", 50, 50);
+				game.load.spritesheet("moedinha1", "moedas_prata.png", 50, 50);
+				game.load.spritesheet("moedinha2", "moedas_bronze.png", 50, 50);
+
+				game.load.spritesheet("TubaCome", "TubaCome.png", 100, 100);
+
+				game.load.spritesheet("preto", "preto.png", 800, 600);
+				game.load.spritesheet("fim", "fim.png", 800, 600);
+
+				game.load.audio('Wipeout', 'Wipeout.mp3');
+			}
+
+			this.create = function () {
+
+				audioJogo = game.add.audio('Wipeout', 1, true);
+				audioJogo.addMarker('Entrada', 5, 8, 1, true);
+				audioJogo.addMarker('Jogo', 13, 136, 1, true);
+				audioJogo.addMarker('Final', 1, 4, 1, false);
+				audioJogo.play('Jogo');
+
+				lives = 3;
+				barbatanaTimer = game.time.now + 7000;
+				moedinhaTimer = game.time.now + 5000;
+				gravidadeMoedinhaTimer = game.time.now + 200;
+				gravidadeMoedinha = game.time.now + 500;
+				fadeOk = false;
+				fade2Rodando = false;
+
+				ceu = game.add.tileSprite(0, 0, 800, 600, "ceu");
+				distancia = 0;
+				agua = game.add.tileSprite(0, 214, 800, 386, "agua");
+
+
+				var anim1, anim2, ultimoFrame1 = 0, ultimoFrame2 = 4;
+				scoreString = 'Pontos : ';
+				scoreText = game.add.text(10, 10, scoreString + score, {
+					font: '34px Almonte Snow',
+					fill: '#1366cd'
+				});
+
+				liveString = 'Vidas : ';
+				liveText = game.add.text(690, 10, liveString + lives, {
+					font: '34px Almonte Snow',
+					fill: '#1366cd'
+				});
+
+				stateText = game.add.text(game.world.centerX, game.world.centerY, ' ', {
+					font: '84px Almonte Snow',
+					fill: '#1366cd'
+				});
+				stateText.anchor.setTo(0.5, 0.5);
+				stateText.visible = false;
+
+				distanceString = 'Distância : ';
+				distanceText = game.add.text(330, 10, distanceString + distancia + " m", {
+					font: '34px Almonte Snow',
+					fill: '#1366cd'
+				});
+
+				cursors = game.input.keyboard.createCursorKeys();
+				teclaW = game.input.keyboard.addKey(Phaser.Keyboard.W);
+				teclaD = game.input.keyboard.addKey(Phaser.Keyboard.D);
+
+				game.physics.startSystem(Phaser.Physics.ARCADE);
+
+				barbatanas = game.add.group();
+				barbatanas.enableBody = true;
+				barbatanas.physicsBodyType = Phaser.Physics.ARCADE;
+				barbatanas.createMultiple(4, 'barbatana');
+				barbatanas.setAll('anchor.x', 0.5);
+				barbatanas.setAll('anchor.y', 0.5);
+				barbatanas.setAll('outOfBoundsKill', true);
+				barbatanas.setAll('checkWorldBounds', true);
+
+				moedinhas = game.add.group();
+				moedinhas.enableBody = true;
+				moedinhas.physicsBodyType = Phaser.Physics.ARCADE;
+				moedinhas.createMultiple(1, 'moedinha');
+				moedinhas.createMultiple(2, 'moedinha1');
+				moedinhas.createMultiple(3, 'moedinha2');
+				moedinhas.setAll('anchor.x', 0.5);
+				moedinhas.setAll('anchor.y', 0.5);
+				moedinhas.setAll('outOfBoundsKill', true);
+				moedinhas.setAll('checkWorldBounds', true);
+				for (var i = 0; i < moedinhas.children.length; i++) {
+					moedinhas.children[i].animations.add("girando", [0, 1, 2, 3, 4, 5], 10, true);
+				}
+
+				invencivel = false;
+				player = game.add.sprite(0, yMaximo, "player");
+				game.physics.arcade.enable(player);
+				player.body.collideWorldBounds = true;
+				player.animations.add("parado", [0], 1, true);
+				player.animations.add("subindo1", [1], 1, true);
+				player.animations.add("descendo1", [4], 1, true);
+				player.animations.play("parado");
+				player.body.acceleration.x = -aceleracao;
+				player.body.maxVelocity.x = velocidadeMax;
+				player.body.maxVelocity.y = velocidadeMaxVertical;
+				player.body.setSize(95, 28, 0, 57);
+
+				preto = null;
+
+				sombra = game.add.sprite(0, 214, "sombra");
+
+				crista = game.add.sprite(0, 214, "crista");
+				crista.animations.add("ondas", [0, 1, 2, 3], 10, true);
+				crista.animations.play("ondas");
+
+				pretoInicio = game.add.sprite(0, 0, "preto");
+				pretoInicio.alpha = 1.0;
+				game.add.tween(pretoInicio).to({ alpha: 0.0 }, 500, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(pretoInicioFadeInCompleto, this);
+			}
+
+			function pretoInicioFadeInCompleto() {
+				pretoInicio.kill();
+				pretoInicio = null;
+			}
+
+			this.update = function () {
+
+				if (fadeOk && game.input.activePointer.isDown) {
+					if (!fade2Rodando) {
+						fade2Rodando = true;
+						var preto2 = game.add.sprite(0, 0, "preto");
+						preto2.alpha = 0;
+						game.add.tween(preto2).to({ alpha: 1 }, 1000, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(fade2Completo, this);
+					}
+				}
+
+				if (invencivel) {
+					if (game.time.now > invencivelTimer) {
+						invencivelTimer = game.time.now + 100;
+						invencivelContador = invencivelContador + 1;
+						if (invencivelContador % 2 == 0) {
+							player.visible = true;
+						} else {
+							player.visible = false;
+						}
+						if (invencivelContador >= 30) {
+							invencivel = false;
+							player.visible = true;
+						}
+					}
+				}
+
+				if (game.time.now > gravidadeMoedinhaTimer) {
+					gravidadeMoedinhaTimer = game.time.now + 500;
+					if (gravidadeMoedinha > 0) {
+						gravidadeMoedinha = -400;
+					} else {
+						gravidadeMoedinha = 400;
+					}
+				}
+				var moedinhasVivas = moedinhas.getAll('exists', true); // as moedinhas que existem na tela
+				for (var i = 0; i < moedinhasVivas.length; i++) {
+					var moedinha = moedinhasVivas[i];
+					if (moedinha.body.position.y > yMaximo) {
+						moedinha.body.position.y = yMaximo;
+						moedinha.body.velocity.y = 0;
+					} else if (moedinha.body.position.y < yMinimo) {
+						moedinha.body.position.y = yMinimo;
+						moedinha.body.velocity.y = 0;
+					}
+					moedinhasVivas[i].body.acceleration.y = gravidadeMoedinha;
+				}
+
+				ceu.tilePosition.x -= 0.5;
+				agua.tilePosition.x -= 4.0;
+				if (!preto) {
+					distancia += 0.1;
+					distanceText.setText(distanceString + (distancia | 0) + " m");
+				}
+				//fundo.tilePosition.x -= 4;
+
+				if (cursors.right.isDown || teclaD.isDown) {
+					player.body.acceleration.x = aceleracao;
+				} else {
+					player.body.acceleration.x = -aceleracao;
+				}
+
+				if (cursors.up.isDown || teclaW.isDown) {
+					player.body.acceleration.y = -aceleracaoVertical;
+				} else {
+					player.body.acceleration.y = aceleracaoVertical;
+				}
+
+				if (Math.abs(player.body.velocity.y) <= velocidadeVerticalLimite) {
+					player.animations.play("parado");
+				} else if (player.body.velocity.y < 0) {
+					player.animations.play("subindo1");
+				} else if (player.body.velocity.y > 0) {
+					player.animations.play("descendo1");
+				}
+
+				if (player.body.position.y > yMaximo) {
+					player.body.position.y = yMaximo;
+					player.body.velocity.y = 0;
+					player.body.acceleration.y = 0;
+				} else if (player.body.position.y < yMinimo) {
+					player.body.position.y = yMinimo;
+					player.body.velocity.y = 0;
+					player.body.acceleration.y = 0;
+				}
+
+				if (game.time.now > moedinhaTimer) {
+					moedaShow();
+				}
+
+				if (game.time.now > barbatanaTimer) {
+					tubaShow();
+				}
+
+				game.physics.arcade.overlap(barbatanas, player, tubaAcertaPlayer, null, this);
+				game.physics.arcade.overlap(moedinhas, player, moedinhaAcertaPlayer, null, this);
+			}
+
+
+			function tubaAcertaPlayer(player, barbatana) {
+				// barbatana.kill();
+
+				if (invencivel) {
+					return;
+				}
+
+				lives = lives - 1;
+
+				if (lives <= 0) {
+					audioJogo.play('Final');
+
+					player.kill();
+					//ir para outra tela
+					preto = game.add.sprite(0, 0, "fim");
+					preto.alpha = 0;
+					preto.bringToTop();
+					game.add.tween(preto).to({ alpha: 0.85 }, 2000, Phaser.Easing.Linear.None, true, 0, 0, false).onComplete.add(fadeCompleto, this);
+
+					var novoScoreText = game.add.text(380, 321, "" + score, {
+						font: '48px Almonte Snow',
+						fill: '#ffffff'
+					});
+					novoScoreText.alpha = 0;
+					novoScoreText.bringToTop();
+					game.add.tween(novoScoreText).to({ alpha: 0.85 }, 2000, Phaser.Easing.Linear.None, true, 0, 0, false);
+
+				} else {
+					barbatana.kill();
+					invencivel = true;
+					invencivelContador = 0;
+					invencivelTimer = game.time.now + 100;
+				}
+				liveText.text = liveString + lives;
+			}
+
+			function fadeCompleto() {
+				fadeOk = true;
+
+				// exibir textos e outras informações...
+			}
+
+			function fade2Completo() {
+				audioJogo.stop();
+				game.state.start("TelaApresentacao");
+			}
+
+			function moedinhaAcertaPlayer(player, moedinha) {
+				if (moedinha.key == "moedinha") {
+					score += 50;
+				} else if (moedinha.key == "moedinha1") {
+					score += 25;
+				} else if (moedinha.key == "moedinha2") {
+					score += 10;
+				}
+
+				scoreText.text = scoreString + score;
+				moedinha.kill();
+			}
+
+			function tubaShow() {
+				if (!preto) {
+					var barbatana = barbatanas.getFirstExists(false);
+
+					if (lives && barbatana) {
+						var delta = yMaximo - yMinimo;
+						var y = yMinimo + (delta * Math.random()); // delimita o y das barbatanas
+						barbatana.reset(840, y);
+						barbatana.body.setSize(62, 13, 18, 57);
+						barbatana.body.velocity.x = -300;
+
+						barbatanaTimer = game.time.now + 1000 * Math.random();
+					}
+
+					sombra.bringToTop();
+					crista.bringToTop();
+				}
+			}
+
+			function moedaShow() {
+				if (!preto) {
+					var moedinha = moedinhas.getRandomNotExists();
+
+					if (lives && moedinha) {
+						var delta = yMaximo - yMinimo;
+						var y = yMaximo - (delta * Math.random()); // delimita o y das moedinhas
+						moedinha.reset(799, y);
+						moedinha.body.velocity.x = -400;
+						moedinha.body.setCircle(25, 25, 25);
+						moedinha.body.acceleration.y = gravidadeMoedinha;
+
+						moedinha.animations.play("girando");
+
+						moedinhaTimer = game.time.now + 1000 * Math.random();
+					}
+
+					sombra.bringToTop();
+					crista.bringToTop();
+				}
+			}
+		}
+
+		// Os estados do jogo podem ser entendidos como "telas" ou "cenários"
+		// Se nosso jogo tivesse mais de uma "tela", bastaria adicionar as telas aqui,
+		// dando nomes para cada uma (para alternar entre uma tela e outra, bastaria
+		// executar jogo.state.start("Nome da tela") a qualquer momento)
+		game.state.add("TelaInicial", TelaInicial);
+		game.state.add("TelaApresentacao", TelaApresentacao);
+
+        //]]>
+	</script>
+</body>
+
+</html>
