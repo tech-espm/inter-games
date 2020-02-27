@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pt-br">
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=800, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, minimal-ui, shrink-to-fit=no" />
+	<link href="https://fonts.googleapis.com/css?family=Luckiest+Guy|Press+Start+2P&display=swap" rel="stylesheet" />
+
+	<title>Hot Potato</title>
+	
+	<style type="text/css">
+        html {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            min-height: 100%;
+        }
+        
+        body {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            min-height: 100%;
+            background: url('sprites/telainicial.gif');
+            background-size: 100% 100%;
+			color: #fff;
+			font: normal 14px sans-serif;
+		}
+
+		/*
+			Esse estilo é para centralizar a tela do jogo no desktop,
+			sem dar um "pulo" no início! :)
+		*/
+		canvas {
+			display: block;
+			margin: 0 auto;
+		}
+        
+        #linkInstrucao {
+            display: block;
+			position: absolute;
+			cursor: pointer;
+			background: #ff9900;
+			background: -moz-linear-gradient(top, #ff9900 0%, #cc7a00 100%);
+			background: -webkit-linear-gradient(top, #ff9900 0%,#cc7a00 100%);
+			background: linear-gradient(to bottom, #ff9900 0%,#cc7a00 100%);
+			right: 10px;
+			top: 10px;
+			width: 140px;
+			height: 50px;
+			text-decoration: none;
+			font: normal 12px 'Press Start 2P';
+        }
+        
+        #linkSom {
+			display: block;
+			position: absolute;
+			cursor: pointer;
+			background: #ff9900;
+			background: -moz-linear-gradient(top, #ff9900 0%, #cc7a00 100%);
+			background: -webkit-linear-gradient(top, #ff9900 0%,#cc7a00 100%);
+			background: linear-gradient(to bottom, #ff9900 0%,#cc7a00 100%);
+			right: 150px;
+			top: 10px;
+			width: 122px;
+			height: 50px;
+			text-decoration: none;
+			font: normal 12px 'Press Start 2P';
+        }
+        
+        #divInstrucoes {
+            position: fixed;
+            left: 46.5%;
+            top: 200px;
+            margin: 0 -200px;
+            width: 400px;
+            padding: 50px;
+            text-align: center;
+            background: rgba(0,0,0,0.78);
+            color: #fff;
+        }
+	</style>
+</head>
+<body>
+
+	<button id="linkInstrucao" type="button" onclick="exibirInstrucoes()">Instruções</button>
+	<button id="linkSom" type="button" onclick="alternarSomInicial()">Tocar Música</button>
+    <audio id="somInicial" src="sprites/ghostmusic.mp3" loop></audio>
+
+    <div id="divInstrucoes" style="display: none;">
+        <b>INSTRUÇÕES</b>
+        
+<p><b>Controles</b></p>
+        
+<p><b>Jogador 1:</b> (W/A/S/D) (ATIRAR: F) (PROVOCAÇÃO: C/X)</p> 
+        
+<p><b>Jogador 2:</b> (SETAS) (ATIRAR: P) (PROVOCAÇÃO: L)</p>
+        
+<p><b>Objetivo:</b></p>
+<p>Arremesse a <b>HOT POTATO</b> no seu oponente, <b>NÃO</b> esteja com ela quando o tempo acabar.</p>       
+        
+    </div>
+    
+    <div id="divJogo"></div>
+    
+	<script type="text/javascript" src="phaser.min.js"></script>
+	<script type="text/javascript">
+	//<![CDATA[
+	"use strict";
+
+	// Essa não é a forma mais "profissional" de fazer, mas é a mais simples :)
+
+	// Vamos chamar a variável de game, para ficar igual ao sandbox!
+	var game;
+
+	var horaInicio;
+    var gameOver;
+    var jogador, jogador2, vencedor;
+    var horaEfeitoJogador, horaEfeitoJogador2, audioTempoLimiteTocado;
+    var musicafundo;
+	var tiros, tiros2;
+    var horaProximoTiro, horaProximoTiro2;
+    var temBatata, temBatata2;
+	var fundo;
+	var plataformas;
+	var setas;
+    var textoTimer;
+    var tiroerroump3, tiroacertoump3;
+	var botaoW, botaoA, botaoS, botaoD, botaoTiro, botaoTiro2, botaoL, botaoC, botaoX;
+    var musica10segsfinaismp3,vemtranquilomp3,votematamp3,heeheemp3;
+    
+
+	// Para evitar pulos consecutivos se o jogador mantiver a tecla pressionada
+	var jaPulou, jaPulou2;
+
+	// Realismo?!?!?!
+	//var pxPorM = 22.222222222222222222222222222222;
+	//var pxPorCM = 0.22222222222222222222222222222222;
+	//// px/cm
+	//// cm * px/cm = px
+	//var gravidade = 980 * pxPorCM;
+	//var velocidadePulo = -gravidade * 0.25;
+
+	// Valores irreais, mas que ficam bem no jogo :)
+	var gravidade = 1550;
+	var gravidadeForte = 2750;
+	var velocidadePulo = -gravidade * 0.6;
+
+	// Se não limitar a velocidade máxima de queda, como não existe resistência do ar,
+	// a gravidade fará com que o personagem acelere para sempre, chegando a velocidades
+	// exorbitantes e irreais!
+	// (Utilizar um valor positivo, que o Phaser se encarregará de ajustar o sinal)
+	var velocidadeYMax = -velocidadePulo * 2;
+	var velocidadeYMaxForte = -velocidadePulo * 8;
+
+	var aceleracaoX = 3250;
+	var aceleracaoXFreio = 1750;
+	var velocidadeXMax = 500;
+
+	var animacaoAtual, animacaoAtual2;
+
+	function TelaInicial(game) {
+
+		// A função init() não aparecia no sandbox porque eles fazem ela por nós lá! :)
+		this.init = function () {
+
+			game.input.maxPointers = 1;
+
+			// Deixar o jogo executando, mesmo se o browser mudar de aba?
+			game.stage.disableVisibilityChange = true;
+
+			if (game.device.desktop) {
+				// Configurações específicas para desktop
+
+				// Como criamos o CSS acima, não precisamos centralizar via código
+				game.scale.pageAlignHorizontally = false;
+			} else {
+				// Configurações específicas para celulares
+
+				game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+				// Especifica o tamanho mímino e máximo para a área do jogo (de 400x300 até 800x600)
+				game.scale.setMinMax(400, 300, 800, 600);
+				game.scale.forceLandscape = true;
+				// Como criamos o CSS acima, não precisamos centralizar via código
+				game.scale.pageAlignHorizontally = false;
+			}
+
+		}
+
+		this.preload = function () {
+
+			game.load.image("cozinhasiri", "sprites/cozinhasiri-fundo.png");
+			game.load.image("fim1ganha", "sprites/fim1ganha.png");
+			game.load.image("fim2ganha", "sprites/fim2ganha.png");
+			game.load.spritesheet("explosao", "sprites/explosao-tiro.png", 80, 80);
+			game.load.spritesheet("jogadorRonald_VERM", "sprites/ronald-vermelho.png", 53, 53);
+			game.load.spritesheet("jogadorRonald_AZUL", "sprites/ronald-azul.png", 53, 53);
+			game.load.spritesheet("tiroBatata", "sprites/batata-tiro.png", 30, 30);
+			game.load.spritesheet("fundo", "sprites/gif-batata.png", 660, 294); //1024x1024 
+			game.load.image("plataforma", "sprites/plataforma.png");
+
+            game.load.audio("tiroerroump3", "sprites/erroutiro.mp3");
+            game.load.audio("tiroacertoump3", "sprites/acertoutiro.mp3");
+            game.load.audio("musicafundomp3", "sprites/undertale.mp3");
+            game.load.audio("heeheemp3", "sprites/heeheemp3.mp3");
+            game.load.audio("vemtranquilomp3", "sprites/vemtranquilo.mp3");
+            game.load.audio("votematamp3", "sprites/votemata.mp3");
+            game.load.audio("musica10segsfinais", "sprites/musica10segsfinais.mp3");
+		}
+
+		this.create = function () {
+            //game.stage.backgroundColor = "#333333";
+            game.add.tileSprite(0, 0, 1280, 720, "cozinhasiri");
+            
+            musicafundo = game.add.audio("musicafundomp3", 0.6, true);
+            musicafundo.play();
+            
+            tiroerroump3 = game.add.audio("tiroerroump3", 3.8);
+            tiroerroump3.allowMultiple = false;
+            
+            tiroacertoump3 = game.add.audio("tiroacertoump3", 3.0);
+            tiroacertoump3.allowMultiple = false;
+            
+            heeheemp3 = game.add.audio("heeheemp3", 2.0);
+            heeheemp3.allowMultiple = false;
+            
+            vemtranquilomp3 = game.add.audio("vemtranquilomp3", 2.0);
+            vemtranquilomp3.allowMultiple = false;
+            
+            votematamp3 = game.add.audio("votematamp3",2.0);
+            votematamp3.allowMultiple = false;
+            
+            musica10segsfinaismp3 = game.add.audio("musica10segsfinais", 1.0);
+            musica10segsfinaismp3.allowMultiple = false;
+
+            var fundo = game.add.sprite(300, 300, "fundo");
+            //fundo.scale.x = 5;
+            //fundo.scale.y = 5;
+            fundo.animations.add("anim", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 10, true);
+            fundo.animations.play("anim");
+
+            plataformas = game.add.physicsGroup();
+            
+            //voando:
+            plataformas.create(750, 400, "plataforma");
+            plataformas.create(378, 100, "plataforma");
+            plataformas.create(790, 400, "plataforma");
+            plataformas.create(70, 255, "plataforma");
+            plataformas.create(680, 255, "plataforma");
+			plataformas.create(0, 400, "plataforma");
+			plataformas.create(378, 540, "plataforma");
+            //chão:
+            plataformas.create(0, 670, "plataforma");
+            plataformas.create(340, 670, "plataforma");
+            plataformas.create(650, 670, "plataforma");
+            plataformas.create(780, 670, "plataforma");
+
+			plataformas.setAll("body.immovable", true);
+            plataformas.setAll("body.checkCollision.down", false);
+
+			jaPulou = false;
+            horaEfeitoJogador = 0;
+			jogador = game.add.sprite(1225, 300, "jogadorRonald_VERM");
+			jogador.animations.add("esquerda", [0, 1, 2, 3, 4], 35, true);
+			jogador.animations.add("parado", [5], 1, true);
+			jogador.animations.add("direita", [6, 7, 8, 9, 10], 35, true);
+			jogador.animations.add("pulandoEsquerda", [12], 1, true);
+			jogador.animations.add("pulandoDireita", [11], 1, true);
+            jogador.animations.add("taunt", [31,32], 5, false);
+			animacaoAtual = 0;
+			jogador.animations.play("parado");
+
+            game.physics.arcade.enable(jogador);
+			jogador.body.collideWorldBounds = true;
+			jogador.body.drag.x = aceleracaoXFreio;
+			jogador.body.gravity.y = gravidade;
+			jogador.body.maxVelocity.x = velocidadeXMax;
+			jogador.body.maxVelocity.y = velocidadeYMax;
+            // largura, altura, posição x (a partir da esquerda), posição y (a partir do topo)
+            jogador.body.setSize(20, 30, 6, 18);
+            //jogador.body.bounce.setTo(0, 0);
+
+			jaPulou2 = false;
+            horaEfeitoJogador2 = 0;
+			jogador2 = game.add.sprite(10, 200, "jogadorRonald_AZUL");
+			jogador2.animations.add("esquerda", [0, 1, 2, 3, 4], 35, true);
+			jogador2.animations.add("parado", [5], 1, true);
+			jogador2.animations.add("direita", [6, 7, 8, 9, 10], 35, true);
+			jogador2.animations.add("pulandoEsquerda", [12], 1, true);
+			jogador2.animations.add("pulandoDireita", [11], 1, true);
+            jogador2.animations.add("taunt", [29,30], 4, true);
+            jogador2.animations.add("taunt2", [21,22], 4,true);
+			animacaoAtual2 = 0;
+			jogador2.animations.play("parado");
+
+			game.physics.arcade.enable(jogador2);
+			jogador2.body.collideWorldBounds = true;
+			jogador2.body.drag.x = aceleracaoXFreio;
+			jogador2.body.gravity.y = gravidade;
+			jogador2.body.maxVelocity.x = velocidadeXMax;
+			jogador2.body.maxVelocity.y = velocidadeYMax;
+            // largura, altura, posição x (a partir da esquerda), posição y (a partir do topo)
+            jogador2.body.setSize(20, 30, 6, 18);
+            //jogador2.body.bounce.setTo(0, 0);
+
+            tiros = game.add.group();
+			tiros.enableBody = true;
+			tiros.physicsBodyType = Phaser.Physics.ARCADE;
+			// Veja o comentário dentro de atirar() sobre esse número 20
+			for (var i = 0; i < 20; i++) {
+				var b = tiros.create(0, 0, "tiroBatata");
+				b.exists = false;
+				b.visible = false;
+				b.checkWorldBounds = true;
+				b.events.onOutOfBounds.add(destruirTiro, this);
+			}
+            horaProximoTiro = 0;
+            temBatata = true;
+
+            tiros2 = game.add.group();
+			tiros2.enableBody = true;
+			tiros2.physicsBodyType = Phaser.Physics.ARCADE;
+			// Veja o comentário dentro de atirar2() sobre esse número 20
+			for (var i = 0; i < 20; i++) {
+				var b = tiros2.create(0, 0, "tiroBatata");
+				b.exists = false;
+				b.visible = false;
+				b.checkWorldBounds = true;
+				b.events.onOutOfBounds.add(destruirTiro, this);
+			}
+            horaProximoTiro2 = 0;
+            temBatata2 = true;
+            
+            setas = game.input.keyboard.createCursorKeys();
+			botaoW = game.input.keyboard.addKey(Phaser.Keyboard.W);
+			botaoA = game.input.keyboard.addKey(Phaser.Keyboard.A);
+			botaoS = game.input.keyboard.addKey(Phaser.Keyboard.S);
+			botaoD = game.input.keyboard.addKey(Phaser.Keyboard.D);
+            botaoTiro = game.input.keyboard.addKey(Phaser.Keyboard.P);
+            botaoTiro2 = game.input.keyboard.addKey(Phaser.Keyboard.F);
+            botaoL = game.input.keyboard.addKey(Phaser.Keyboard.L);
+            botaoC = game.input.keyboard.addKey(Phaser.Keyboard.C);
+            botaoX = game.input.keyboard.addKey(Phaser.Keyboard.X);
+
+            var estilo = { font: "65px 'Luckiest Guy'", fill: "#cd0000", align: "center" };
+            textoTimer = game.add.text(630, 40, "60", estilo);
+            textoTimer.anchor.set(0.5);
+
+            gameOver = false;
+            audioTempoLimiteTocado = false;
+            horaInicio = game.time.now;
+		}
+        
+        function destruirTiro(tiro, acertouJogador) {
+            var explosao = game.add.sprite(tiro.x, tiro.y, "explosao");
+            explosao.anchor.x = 0.5;
+            explosao.anchor.y = 0.5;
+			explosao.animations.add("explodir", [0, 1, 2, 3, 4, 5, 6, 7, 8], 12, false);
+			explosao.play("explodir", 12, false, true);
+            
+            if (acertouJogador === true) {
+                tiroacertoump3.play();
+            } else {
+                tiroerroump3.play();
+            }
+
+            tiro.kill();
+        }
+
+        function atirar() {
+            if (gameOver) {
+                return;
+            }
+
+			// Para não ter um monte de tiros na tela, precisamos controlar a
+			// cadência dos tiros!
+			if (game.time.now < horaProximoTiro || !temBatata) {
+				return;
+			}
+
+			// Nós criamos 20 tiros, assim, só poderão existir no máximo 20 tiros
+			// na tela, em qualquer momento!
+			var tiro = tiros.getFirstExists(false);
+
+			if (tiro) {
+				if (jogador.body.velocity.x < 0) {
+				    tiro.reset(jogador.x, jogador.y + 10);
+                    tiro.body.velocity.x = -900;
+                } else {
+                    tiro.reset(jogador.x + 30, jogador.y + 10);
+                    tiro.body.velocity.x = 900;
+                }
+                tiro.anchor.x = 0.5;
+                tiro.anchor.y = 0.5;
+                tiro.body.acceleration.y = 1000;
+				horaProximoTiro = game.time.now + 300;
+			}
+		}
+
+        function atirar2() {
+            if (gameOver) {
+                return;
+            }
+
+			// Para não ter um monte de tiros na tela, precisamos controlar a
+			// cadência dos tiros!
+			if (game.time.now < horaProximoTiro2 || !temBatata2) {
+				return;
+			}
+
+			// Nós criamos 20 tiros, assim, só poderão existir no máximo 20 tiros
+			// na tela, em qualquer momento!
+			var tiro = tiros2.getFirstExists(false);
+
+			if (tiro) {
+				if (jogador2.body.velocity.x < 0) {
+				    tiro.reset(jogador2.x, jogador2.y + 10);
+                    tiro.body.velocity.x = -900;
+                } else {
+                    tiro.reset(jogador2.x + 30, jogador2.y + 10);
+                    tiro.body.velocity.x = 900;
+                }
+                tiro.anchor.x = 0.5;
+                tiro.anchor.y = 0.5;
+				if (jogador2.body.velocity.x < 0) {
+                    tiro.body.velocity.x = -900;
+                } else {
+                    tiro.body.velocity.x = 900;
+                }
+                tiro.body.acceleration.y = 1000;
+				horaProximoTiro2 = game.time.now + 300;
+			}
+		}
+
+        function tiroAcertouJogador(jogador, tiro) {
+            destruirTiro(tiro, true);
+			
+            if (gameOver) {
+                return;
+            }
+
+            if (temBatata2) {
+                temBatata = true;
+                temBatata2 = false;
+                // @@@ Mostrar algo na tela???
+            }
+		}
+
+        function tiroAcertouJogador2(jogador, tiro) {
+            destruirTiro(tiro, true);
+			
+            if (gameOver) {
+                return;
+            }
+
+            if (temBatata) {
+                temBatata = false;
+                temBatata2 = true;
+                // @@@ Mostrar algo na tela???
+            }
+		}
+        
+        function controlarJogador() {
+            if (botaoTiro.isDown) {
+                atirar();
+            }
+            
+			if (setas.down.isDown) {
+                jogador.body.gravity.y = gravidadeForte;
+                jogador.body.maxVelocity.y = velocidadeYMaxForte;
+            } else {
+				if (jogador.body.onFloor() || jogador.body.touching.down) {
+                    jogador.body.gravity.y = gravidade;
+                    jogador.body.maxVelocity.y = velocidadeYMax;
+				}
+            }
+            
+            var a = 0;
+			var v = jogador.body.velocity.x;
+			if (setas.left.isDown) {
+				if (v > 0) {
+					// Derrapando! (Poderíamos utilizar uma animação especial aqui, para mostrar a derrapagem)
+					a = -aceleracaoXFreio;
+				} else {
+					a = -aceleracaoX;
+				}
+			} else if (setas.right.isDown) {
+				if (v < 0) {
+					// Derrapando! (Poderíamos utilizar uma animação especial aqui, para mostrar a derrapagem)
+					a = aceleracaoXFreio;
+				} else {
+					a = aceleracaoX;
+				}
+			}
+            
+
+			jogador.body.acceleration.x = a;
+
+			if (setas.up.isDown) {
+				if (!jaPulou && (jogador.body.onFloor() || jogador.body.touching.down)) {
+					jaPulou = true;
+					jogador.body.velocity.y = velocidadePulo;
+				}
+			} else {
+				jaPulou = false;
+			}
+
+			// Utilizando jogador.body.onFloor() e jogador.body.touching.down,
+			// também poderíamos criar uma animação especial para quando o
+			// personagem está pulando no ar...
+			if (jogador.body.velocity.y !== 0) {
+				if (v < 0) {
+                    if (animacaoAtual !== 2) {
+                        animacaoAtual = 2;
+                        jogador.animations.play("pulandoEsquerda");
+                    }
+                } else {
+                    if (animacaoAtual !== 3) {
+                        animacaoAtual = 3;
+                        jogador.animations.play("pulandoDireita");
+                    }
+                }
+            } else if (v > 0) {
+				if (animacaoAtual !== 1) {
+					animacaoAtual = 1;
+					jogador.animations.play("direita");
+				}
+			} else if (v < 0) {
+				if (animacaoAtual !== -1) {
+					animacaoAtual = -1;
+					jogador.animations.play("esquerda");
+				}
+			} else {
+				if (animacaoAtual !== 0) {
+					animacaoAtual = 0;
+					jogador.animations.play("parado");
+				}
+			}
+            
+            if (!setas.left.isDown && !setas.right.isDown && !gameOver) {
+                if (botaoL.isDown && game.time.now >= horaEfeitoJogador) {
+                    horaEfeitoJogador = game.time.now + 500;
+                    jogador.animations.play("taunt");
+                    heeheemp3.stop();
+                    heeheemp3.play();    
+                }
+            }
+            
+        }
+        
+        function controlarJogador2() {
+            if (botaoTiro2.isDown) {
+                atirar2();
+            }
+            
+            if (botaoS.isDown) {
+                jogador2.body.gravity.y = gravidadeForte;
+                jogador2.body.maxVelocity.y = velocidadeYMaxForte;
+            } else {
+				if (jogador2.body.onFloor() || jogador2.body.touching.down) {
+                    jogador2.body.gravity.y = gravidade;
+                    jogador2.body.maxVelocity.y = velocidadeYMax; 
+				}
+            }  
+                                      
+            var a = 0;
+			var v = jogador2.body.velocity.x;
+			if (botaoA.isDown) {
+				if (v > 0) {
+					// Derrapando! (Poderíamos utilizar uma animação especial aqui, para mostrar a derrapagem)
+					a = -aceleracaoXFreio;
+				} else {
+					a = -aceleracaoX;
+				}
+			} else if (botaoD.isDown) {
+				if (v < 0) {
+					// Derrapando! (Poderíamos utilizar uma animação especial aqui, para mostrar a derrapagem)
+					a = aceleracaoXFreio;
+				} else {
+					a = aceleracaoX;
+				}
+			}
+
+			jogador2.body.acceleration.x = a;
+
+			if (botaoW.isDown) {
+				if (!jaPulou2 && (jogador2.body.onFloor() || jogador2.body.touching.down)) {
+					jaPulou2 = true;
+					jogador2.body.velocity.y = velocidadePulo;
+				}
+			} else {
+				jaPulou2 = false;
+			} 
+
+            if (jogador2.body.velocity.y !== 0) {
+				if (v < 0) {
+                    if (animacaoAtual2 !== 2) {
+                        animacaoAtual2 = 2;
+                        jogador2.animations.play("pulandoEsquerda");
+                    }
+                } else {
+                    if (animacaoAtual2 !== 3) {
+                        animacaoAtual2 = 3;
+                        jogador2.animations.play("pulandoDireita");
+                    }
+                }
+            } else if (v > 0) {
+				if (animacaoAtual2 !== 1) {
+					animacaoAtual2 = 1;
+					jogador2.animations.play("direita");
+				}
+			} else if (v < 0) {
+				if (animacaoAtual2 !== -1) {
+					animacaoAtual2 = -1;
+					jogador2.animations.play("esquerda");
+				}
+			} else {
+				if (animacaoAtual2 !== 0) {
+					animacaoAtual2 = 0;
+					jogador2.animations.play("parado");
+				}
+			}
+            
+            if (!botaoA.isDown && !botaoD.isDown && !gameOver) {
+                if (botaoC.isDown && game.time.now >= horaEfeitoJogador2) {
+                    horaEfeitoJogador2 = game.time.now + 500;
+                    jogador2.animations.play("taunt");
+                    vemtranquilomp3.stop();
+                    votematamp3.stop();
+                    vemtranquilomp3.play();
+                }
+                if (botaoX.isDown && game.time.now >= horaEfeitoJogador2) {
+                    horaEfeitoJogador2 = game.time.now + 500;
+                    jogador2.animations.play("taunt2");
+                    vemtranquilomp3.stop();
+                    votematamp3.stop();
+                    votematamp3.play();
+                }
+            }
+        }
+
+        function jogadoresEncostando() {
+            console.log("encostando");
+        }
+
+        function fadeAcabou() {
+            var video = document.createElement("video");
+            video.style.position = "fixed";
+            video.style.left = "0";
+            video.style.top = "0";
+            video.style.width = "100%";
+            video.style.height = "100%";
+            video.setAttribute("loop", "loop");
+            if (vencedor == 1) {
+                video.setAttribute("src", "sprites/vermelho-ganhou.mp4");
+            } else {
+                video.setAttribute("src", "sprites/azul-ganhou.mp4");
+            }
+            document.body.appendChild(video);
+            video.play();
+            video.onclick = function () {
+                video.pause();
+                document.body.removeChild(video);
+                game.state.start("TelaInicial");  
+            };
+        }
+        
+        this.update = function () {
+			game.physics.arcade.collide(jogador, plataformas);
+			game.physics.arcade.collide(jogador2, plataformas);
+            game.physics.arcade.overlap(tiros, plataformas, destruirTiro, null, this);
+            game.physics.arcade.overlap(tiros2, plataformas, destruirTiro, null, this);
+
+            if (gameOver) {
+                return;
+            }
+
+            var segundosRestantes = (61 - (game.time.now - horaInicio) / 1000) | 0;
+            if (segundosRestantes <= 0) {
+                textoTimer.setText("FIM");
+                gameOver = true;
+                var banner;
+                if (temBatata) {
+                    // Jogador 1 perdeu!
+                    vencedor = 2;
+                    banner = game.add.tileSprite(0, 0, 1280, 720, "fim2ganha");
+                } else {
+                    // Jogador 2 perdeu!
+                    vencedor = 1;
+                    banner = game.add.tileSprite(0, 0, 1280, 720, "fim1ganha");
+                }
+                banner.alpha = 0;
+                game.add.tween(banner).to({alpha: 1}, 1000, Phaser.Easing.Sinusoidal.InOut, true, 0, 0, false).onComplete.add(fadeAcabou);
+                //banner.inputEnabled = true;
+                //banner.input.useHandCursor = true;
+                //banner.events.onInputDown.add(reiniciar);
+            } else {
+                textoTimer.setText(segundosRestantes);
+                
+                if (segundosRestantes < 11 && !audioTempoLimiteTocado) {
+                    audioTempoLimiteTocado = true;
+                    // Play no som!
+                    musicafundo.stop();
+                    musica10segsfinaismp3.play();
+                }
+            }
+            
+            //game.physics.arcade.overlap(jogador, jogador2, jogadoresEncostando, null, this);
+            game.physics.arcade.overlap(jogador,  tiros2, tiroAcertouJogador, null, this);
+            game.physics.arcade.overlap(jogador2, tiros, tiroAcertouJogador2, null, this);
+            
+            controlarJogador();
+            controlarJogador2();
+		}
+	}
+
+	// Os estados do jogo podem ser entendidos como "telas" ou "cenários"
+	// Se nosso jogo tivesse mais de uma "tela", bastaria adicionar as telas aqui,
+	// dando nomes para cada uma (para alternar entre uma tela e outra, bastaria
+	// executar jogo.state.start("Nome da tela") a qualquer momento)
+	
+    var iniciado = false, instrucoes = false, tocandoSomInicial = false;
+
+    function exibirInstrucoes() {
+        instrucoes = true;
+        document.getElementById("divInstrucoes").style.display = "";
+    }
+
+    function ocultarInstrucoes() {
+        instrucoes = false;
+        document.getElementById("divInstrucoes").style.display = "none";
+    }
+        
+    function alternarSomInicial() {
+        var somInicial = document.getElementById("somInicial");
+        if (tocandoSomInicial == true) {
+            document.getElementById("linkSom").textContent = "Tocar Música";
+            tocandoSomInicial = false;
+            somInicial.pause();
+        } else {
+            document.getElementById("linkSom").textContent = "Parar Música";
+            tocandoSomInicial = true;
+            somInicial.play();
+        }
+    }
+
+    document.body.onclick = function (e) {
+        if (iniciado || e.target.tagName == "BUTTON") {
+            return;
+        }
+
+        if (instrucoes == true) {
+            ocultarInstrucoes();
+            return;
+        }
+
+        iniciado = true;
+        document.body.style.background = "#000";
+        document.getElementById("somInicial").pause();
+        document.body.removeChild(document.getElementById("divInstrucoes"));
+        document.body.removeChild(document.getElementById("linkSom"));
+        document.body.removeChild(document.getElementById("linkInstrucao"));
+        document.body.removeChild(document.getElementById("somInicial"));
+
+        game = new Phaser.Game(1280, 720, Phaser.AUTO, "divJogo");
+        game.state.add("TelaInicial", TelaInicial);
+        game.state.start("TelaInicial");
+    }
+	//]]>
+	</script>
+</body>
+</html>
+
+
